@@ -1,3 +1,6 @@
 
 dist/
 build/
+__pycacge__/
+__pycache__/arduino.cpython-39.pyc
+__pycache__/streamelements.cpython-39.pyc

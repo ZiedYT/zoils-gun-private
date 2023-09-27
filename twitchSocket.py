@@ -9,7 +9,7 @@ class Socket(QObject):
     bits = pyqtSignal(int)
     resub = pyqtSignal()
     finished = pyqtSignal()
-    def __init__(self):
+    def __init__(self,token,channel_name):
         super().__init__()
         self.mutex=False        
         self.run_flag=True
@@ -18,11 +18,15 @@ class Socket(QObject):
         self.channel_name=""
         self.token=""
         self.ws=self.createSocket()
+        self.updateCredentials(token,channel_name)
 
-
-    def run(self):
+        
+    def run(self):        
         self.thread = threading.Thread(target=self.spin)
         self.thread.start()
+        pass
+
+
     def lock(self):
         while self.mutex:
             time.sleep(0.01)
@@ -40,31 +44,38 @@ class Socket(QObject):
         self.unlock()
         return ws
 
-    def updateCredentials(self,channel_name,token):
-        if( channel_name=="" or token==""):
+    def updateCredentials(self,token,channel_name):
+        if(  token=="" or channel_name==""):
             return
+        if( token == self.token and channel_name == self.channel_name):
+            return
+        
         self.lock()
-        self.channel_name=channel_name
+        self.channel_name = channel_name
         self.token = token
         self.headers={ 'Client-ID': self.client_id,
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json'} 
         self.unlock()
 
-        if( self.tokenValid()):
-            self.channelID=self.getUserID(self.channel_name)
+        # if( self.tokenValid()):
+        self.channelID=self.getUserID(self.channel_name)
+        if(self.channelID!=""):
             if(self.channel_name=="ziedyt"):
                 self.subscribe("channel.ban","1")
             self.subscribe("channel.subscription.gift","1")
-            self.subscribe("channel.subscribe","1")
-            self.subscribe("channel.subscription.message","1")
-            self.subscribe("channel.cheer","1")
+            # self.subscribe("channel.subscribe","1")
+            # self.subscribe("channel.subscription.message","1")
+            # self.subscribe("channel.cheer","1")
 
     def getUserID(self,name):
-        url = f'https://api.twitch.tv/helix/users?login={name}'
-        response = requests.get(url, headers=self.headers).json()
-        channelID= str(response["data"][0]["id"])
-        return channelID
+        try:
+            url = f'https://api.twitch.tv/helix/users?login={name}'
+            response = requests.get(url, headers=self.headers).json()
+            channelID= str(response["data"][0]["id"])
+            return channelID
+        except:
+            return ""
     
     def subscribe(self,TYPE, VERSION):
         body={
@@ -79,7 +90,10 @@ class Socket(QObject):
                 }
             }
         
-        res = requests.post('https://api.twitch.tv/helix/eventsub/subscriptions', headers=self.headers, json=body)
+        res = requests.post('https://api.twitch.tv/helix/eventsub/subscriptions', headers=self.headers, json=body).json()
+        # {'error': 'Forbidden', 'status': 403, 'message': 'subscription missing proper authorization'}
+        print(res)
+        self.valid = (res.get("message","")!="subscription missing proper authorization")
 
     def reconnect(self):
         self.ws=self.createSocket()
@@ -87,12 +101,14 @@ class Socket(QObject):
         
 
     def tokenValid(self):
-        if(self.channel_name =="" or self.token ==""):
+        if(self.channel_name =="" or self.token =="" or self.channelID=="" ):
             self.valid= False
             return False
-        url = f'https://api.twitch.tv/helix/users?login={self.channel_name}'
-        response = requests.get(url, headers=self.headers).json()
-        self.valid = not response.get('message',"")=='Invalid OAuth token'
+        
+        # {'error': 'Forbidden', 'status': 403, 'message': 'subscription missing proper authorization'}
+        # url = f'https://api.twitch.tv/helix/users?login={self.channel_name}'
+        # response = requests.get(url, headers=self.headers).json()
+        # self.valid = not response.get('message',"")=='Invalid OAuth token'
         return self.valid
     
         
@@ -105,12 +121,14 @@ class Socket(QObject):
             try:
                 msg=json.loads(self.ws.recv())
             except:
-                print("Error listening, reconnecting")
-                self.reconnect()
+                if(self.run_flag ):
+                    print("Error listening, reconnecting")
+                    self.reconnect()
                 continue
 
             if(self.channel_name == "ziedyt" and msg["metadata"]["message_type"]!="session_keepalive"):
                 print("-------------------")
+                self.giftedSubs.emit(1)
                 print(msg)
 
             if( msg["metadata"]["message_type"]!="session_keepalive"):
@@ -118,12 +136,12 @@ class Socket(QObject):
                 if ( msgType== "channel.subscription.gift"):
                     amount = int(msg["payload"]["event"]["total"])
                     self.giftedSubs.emit(amount)
-                if ( msgType== "channel.cheer"):
-                    amount = int(msg["payload"]["event"]["bits"])
-                    self.bits.emit(amount)
+                # if ( msgType== "channel.cheer"):
+                #     amount = int(msg["payload"]["event"]["bits"])
+                #     self.bits.emit(amount)
                 
-                if( msgType== "channel.subscription.message" or msgType== "channel.subscribe"):
-                    self.resub.emit()
+                # if( msgType== "channel.subscription.message" or msgType== "channel.subscribe"):
+                #     self.resub.emit()
 
     def close(self):
         self.run_flag=False
@@ -146,6 +164,8 @@ class Socket(QObject):
                 'id': '{}'.format(sub["id"]),
             }
             response = requests.delete('https://api.twitch.tv/helix/eventsub/subscriptions', params=params, headers=headers)
+        
+        self.ws=None
 
 
 # channel_name="ziedyt"

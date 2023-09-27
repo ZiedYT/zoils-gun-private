@@ -1,4 +1,5 @@
 import socketio
+import time
 from PyQt5.QtCore import pyqtSignal, QObject
 
 class StreamElementsClient(QObject):
@@ -11,7 +12,9 @@ class StreamElementsClient(QObject):
         self.jwt = jwt
         # Initialize the Socket.IO client
         self.sio = socketio.Client()
-        
+        # self.gifted={}
+        # self.giftedReq=1
+        # self.giftedMulti=True
         # Connect events to class methods
         self.sio.on('connect', self.on_connect)
         self.sio.on('disconnect', self.on_disconnect)
@@ -58,13 +61,35 @@ class StreamElementsClient(QObject):
         print(data)
 
     def on_event(self, data,ts):
+        # print(data)
         if(data["type"]=='subscriber'):
-            if(data["data"].get("gifted",False) ):
+            if( not data["data"].get("gifted",False) ):
+                self.resub.emit()
                 return
-            self.resub.emit()
+            
+            if(data.get("isMock",False)):
+                if(data.get("activityGroup",None)==None):
+                    self.giftedSubs.emit(1)
+                    return            
+
+            # keys= list(self.gifted.keys())
+            # activityGroup= data["activityGroup"]
+            # if (not activityGroup in keys):
+            #     self.gifted[activityGroup] = {"time":time.time(), "count":0}
+            # self.gifted[activityGroup]["count"] += 1
+            # if(self.gifted[activityGroup]["count"] == self.giftedReq ):
+            #     if(self.giftedMulti):
+            #         self.gifted[activityGroup]["count"] = 0
+            #     self.giftedSubs.emit(self.giftedReq)
+            
+            # for key in list(self.gifted.keys()):
+            #     if( time.time() - self.gifted[key]["time"] > 20 ):
+            #         self.gifted.pop(key)
+
         elif(data["type"]=='communityGiftPurchase'):
-            amount = int(data["data"]["amount"])
-            self.giftedSubs.emit(amount)
+            if(data.get("isMock",False)):
+                amount = int(data["data"]["amount"])
+                self.giftedSubs.emit(amount)
 
         elif(data["type"]=='cheer'):
             amount = int(data["data"]["amount"])

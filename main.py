@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QApplication,QTabWidget,QDoubleSpinBox, QDialog, QMa
 from PyQt5 import QtCore, uic
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QThread, QEvent, QTimer
-# from twitchSocket import Socket
+from twitchSocket import Socket
 from streamelements import StreamElementsClient
 from arduino import arduino
 
@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
         self.data={}
         self.ports=[]
         self.arduino=None
+        self.socketStreamelements=None
         self.save_folder = os.path.join(os.getenv('APPDATA'), 'zoilgun')
         if(not os.path.isdir(self.save_folder)):
             os.mkdir(self.save_folder)
@@ -58,7 +59,7 @@ class MainWindow(QMainWindow):
 
     def initialize(self):
         uic.loadUi('main.ui', self)
-        self.setWindowTitle("Zoil's Big Black Gun, by ZiedYT")        
+        self.setWindowTitle("Zoil's Big Gun, by ZiedYT")        
         import ctypes
         myappid = 'zoilgun'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
@@ -111,10 +112,12 @@ class MainWindow(QMainWindow):
             tempdata=json.load(json_file)    
 
         # tempdata = json.load(jsonpath) 
-        # self.data["channel_name"] = tempdata.get("channel_name","")
-        self.data["token"] = tempdata.get("token","")
-        # self.lineEdit_channelname.setText(self.data["channel_name"] )
-        self.lineEdit_token.setText(self.data["token"])
+        self.data["channel_name"] = tempdata.get("channel_name","")
+        self.data["streamelementstoken"] = tempdata.get("streamelementstoken","")
+        self.data["twitchtoken"] = tempdata.get("twitchtoken","")
+        self.lineEdit_channelname.setText(self.data["channel_name"] )
+        self.lineEdit_token.setText(self.data["streamelementstoken"])
+        self.lineEdit_twitchtoken.setText(self.data["twitchtoken"])
         self.checkBox_active.setChecked(tempdata.get("active",False) )
         self.doubleSpinBox_duration.setValue(tempdata.get("duration",0.5))
         self.currport = tempdata.get("port","")
@@ -154,8 +157,15 @@ class MainWindow(QMainWindow):
         self.pushButton_token: QPushButton = self.findChild(QPushButton, "pushButton_token")
         self.tokenLink= "https://streamelements.com/dashboard/account/channels"
         self.pushButton_token.clicked.connect( lambda: webbrowser.open(self.tokenLink) )
-        # self.lineEdit_channelname: QLineEdit = self.findChild(QLineEdit, "lineEdit_channelname")
+        self.lineEdit_channelname: QLineEdit = self.findChild(QLineEdit, "lineEdit_channelname")
         self.lineEdit_token: QLineEdit = self.findChild(QLineEdit,"lineEdit_token")
+
+        self.lineEdit_twitchtoken: QLineEdit = self.findChild(QLineEdit,"lineEdit_twitchtoken")
+        self.pushButton_twitchtoken: QPushButton = self.findChild(QPushButton, "pushButton_twitchtoken")
+        self.twitchtokenLink= "https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=gezmeh32vfe7xyd1hjuk1fgdlcsf1b&redirect_uri=https://twitchapps.com/tokengen/&scope=channel%3Aread%3Asubscriptions%20bits%3Aread%20channel%3Amoderate"
+        self.pushButton_twitchtoken.clicked.connect( lambda: webbrowser.open(self.twitchtokenLink) )
+
+
         self.checkBox_active: QCheckBox = self.findChild(QCheckBox, "checkBox_active")
         self.checkBox_gifted: QCheckBox = self.findChild(QCheckBox,"checkBox_gifted")
         self.checkBox_subs: QCheckBox = self.findChild(QCheckBox,"checkBox_subs")
@@ -212,16 +222,22 @@ class MainWindow(QMainWindow):
         self.arduino.duration= self.doubleSpinBox_duration.value()
 
     def updateCreds(self):
-        # channel_name= self.lineEdit_channelname.text()
+        channel_name= self.lineEdit_channelname.text()
+        twitchtoken=self.lineEdit_twitchtoken.text()        
         token=self.lineEdit_token.text()
-        if(token==""):
+        if(token=="" or channel_name=="" or twitchtoken ==""):
             return
 
-        self.socket.change(token)
+        self.socketStreamelements.change(token)
+        self.data["streamelementstoken"] = token
+
+        self.socketTwitch.updateCredentials(twitchtoken,channel_name)
+        self.data["twitchtoken"] = twitchtoken
+        self.data["channel_name"]=channel_name
         # self.data["token"] = token
 
-        # # self.socket.updateCredentials(self.data["channel_name"], self.data["token"])
-        # if(not self.socket.valid):
+        # # self.socketStreamelements.updateCredentials(self.data["channel_name"], self.data["token"])
+        # if(not self.socketStreamelements.valid):
         #     self.lineEdit_token.setStyleSheet("border: 3px solid red;")
         # else: 
         #     self.lineEdit_token.setStyleSheet("border: 1px solid black;")
@@ -260,25 +276,46 @@ class MainWindow(QMainWindow):
     def manualBullet(self):
         self.arduino.addQueue()
 
+    def changeGifAmount(self):
+        pass
+        # self.socketStreamelements.giftedReq = self.spinBox_amountgifted.value()
+        # self.socketStreamelements.giftedMulti = self.checkBox_mutiplegifted.isChecked()
+
     def start_listener(self):
-        # self.socket = Socket()
-        self.socket = StreamElementsClient(self.lineEdit_token.text())
-        self.socket.connect() 
-        # self.socket.updateCredentials(self.lineEdit_channelname.text(),self.lineEdit_token.text())
-        self.qthread = QThread()
-        self.socket.moveToThread(self.qthread)
+        # self.socketStreamelements = Socket()
+        self.socketStreamelements = StreamElementsClient(self.lineEdit_token.text())
+        self.socketStreamelements.connect() 
+        # self.socketStreamelements.giftedReq = self.spinBox_amountgifted.value()
+        self.spinBox_amountgifted.valueChanged.connect(self.changeGifAmount)
+        self.checkBox_mutiplegifted.clicked.connect(self.changeGifAmount)
+        # self.socketStreamelements.updateCredentials(self.lineEdit_channelname.text(),self.lineEdit_token.text())
+        self.qthreadStreamelements = QThread()
+        self.socketStreamelements.moveToThread(self.qthreadStreamelements)
 
-        # self.qthread.started.connect(self.socket.run)
-        self.socket.finished.connect(self.qthread.quit)
-        self.socket.finished.connect(self.socket.deleteLater)
-        self.qthread.finished.connect(self.qthread.deleteLater)
-        self.socket.finished.connect(self.quit)
+        # self.qthreadStreamelements.started.connect(self.socketStreamelements.run)
+        self.socketStreamelements.finished.connect(self.qthreadStreamelements.quit)
+        self.socketStreamelements.finished.connect(self.socketStreamelements.deleteLater)
+        self.qthreadStreamelements.finished.connect(self.qthreadStreamelements.deleteLater)
+        self.socketStreamelements.finished.connect(self.quit)
 
-        self.socket.resub.connect(self.onSub)
-        self.socket.giftedSubs.connect(self.onGifted)
-        self.socket.bits.connect(self.onBits)
+        self.socketStreamelements.resub.connect(self.onSub)
+        self.socketStreamelements.giftedSubs.connect(self.onGifted)
+        self.socketStreamelements.bits.connect(self.onBits)
 
-        self.qthread.start()
+        self.qthreadStreamelements.start()
+        
+
+
+        self.socketTwitch = Socket(self.lineEdit_twitchtoken.text(), self.lineEdit_channelname.text())
+        self.qthreadTwitch = QThread()
+        self.socketTwitch.moveToThread(self.qthreadTwitch)
+        self.qthreadTwitch.started.connect(self.socketTwitch.run)
+        self.socketTwitch.finished.connect(self.qthreadTwitch.quit)
+        self.socketTwitch.finished.connect(self.socketTwitch.deleteLater)
+        self.qthreadTwitch.finished.connect(self.qthreadTwitch.deleteLater)
+        self.socketTwitch.giftedSubs.connect(self.onGifted)
+        self.socketTwitch.finished.connect(self.quit)
+        self.qthreadTwitch.start()
 
         self.arduino = arduino(port=self.data.get("port",""))
         self.arduino.duration=self.doubleSpinBox_duration.value()
@@ -290,11 +327,17 @@ class MainWindow(QMainWindow):
             self.updatePorts()
             self.lastCreds=time.time()
 
+        if(not self.socketTwitch.valid):
+            self.lineEdit_twitchtoken.setStyleSheet("border: 3px solid red;")
+        else:
+            self.lineEdit_twitchtoken.setStyleSheet("border: 1px solid black;")
+
     def closeEvent(self, event):
         self.quit()
 
     def quit(self):
-        self.socket.close()
+        self.socketStreamelements.close()
+        self.socketTwitch.close()
         self.saveJson()
         self.arduino.run_flag=False
         sys.exit()

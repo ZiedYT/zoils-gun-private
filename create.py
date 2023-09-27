@@ -12,5 +12,6 @@ installer("giftedGun.spec")
 
 shutil.copy("icon.png", "dist/giftedGun/icon.png")
 shutil.copy("main.ui", "dist/giftedGun/main.ui")
+shutil.copytree("drivers","dist/giftedGun/drivers")
 shutil.copy("dist/giftedGun/giftedGun.exe", "dist/giftedGun/giftedGun_console.exe")
 shutil.make_archive("dist/giftedGun", 'zip', "dist/giftedGun")

@@ -4,6 +4,9 @@ import json
 import requests
 import time 
 import threading
+import websocket
+sslopt_ca_certs = {'ca_certs': 'certifi/cacert.pem'}
+
 class Socket(QObject):
     giftedSubs = pyqtSignal(int)
     bits = pyqtSignal(int)
@@ -36,7 +39,9 @@ class Socket(QObject):
         self.mutex=False
 
     def createSocket(self,url="wss://eventsub.wss.twitch.tv/ws"):
-        ws = create_connection(url)
+        ws = websocket.WebSocket(sslopt=sslopt_ca_certs)
+        # ws = create_connection(url)
+        ws.connect(url)
         welcome_msg = json.loads(ws.recv())
         print(welcome_msg)
         self.lock()

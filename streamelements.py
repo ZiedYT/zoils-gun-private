@@ -1,7 +1,9 @@
 import socketio
+import ssl, socketio, http.server,aiohttp
+
 import time
 from PyQt5.QtCore import pyqtSignal, QObject
-
+ssl_cert_path='certifi/cacert.pem'
 class StreamElementsClient(QObject):
     giftedSubs = pyqtSignal(int)
     bits = pyqtSignal(int)
@@ -12,6 +14,11 @@ class StreamElementsClient(QObject):
         self.jwt = jwt
         # Initialize the Socket.IO client
         self.sio = socketio.Client()
+        # ssl_context = ssl.create_default_context()
+        # ssl_context.load_verify_locations(ssl_cert_path)
+        # connector = aiohttp.TCPConnector(ssl=ssl_context)
+        # http_session = aiohttp.ClientSession(connector=connector)
+        # self.sio = socketio.Client(http_session=http_session)
         # self.gifted={}
         # self.giftedReq=1
         # self.giftedMulti=True

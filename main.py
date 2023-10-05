@@ -250,7 +250,7 @@ class MainWindow(QMainWindow):
             self.arduino.addQueue()
 
     def onGifted(self,amount):
-        print("onGifted")
+        print("onGifted",amount)
         if(not self.checkBox_active.isChecked()):
             return
         if(self.checkBox_gifted.isChecked()):
@@ -262,7 +262,7 @@ class MainWindow(QMainWindow):
                 self.arduino.addQueue(count)
 
     def onBits(self,amount):
-        print("onBits")
+        print("onBits",amount)
         if(not self.checkBox_active.isChecked()):
             return
         if(self.checkBox_bits.isChecked()):
@@ -340,6 +340,7 @@ class MainWindow(QMainWindow):
         self.socketTwitch.close()
         self.saveJson()
         self.arduino.run_flag=False
+        self.tray_icon.hide()
         sys.exit()
 
 if __name__ == '__main__':

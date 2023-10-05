@@ -1,9 +1,9 @@
 import socketio
-import ssl, socketio, http.server,aiohttp
-
-import time
+import  socketio,os
 from PyQt5.QtCore import pyqtSignal, QObject
 ssl_cert_path='certifi/cacert.pem'
+os.environ['SSL_CERT_FILE']=ssl_cert_path
+
 class StreamElementsClient(QObject):
     giftedSubs = pyqtSignal(int)
     bits = pyqtSignal(int)
@@ -14,11 +14,6 @@ class StreamElementsClient(QObject):
         self.jwt = jwt
         # Initialize the Socket.IO client
         self.sio = socketio.Client()
-        # ssl_context = ssl.create_default_context()
-        # ssl_context.load_verify_locations(ssl_cert_path)
-        # connector = aiohttp.TCPConnector(ssl=ssl_context)
-        # http_session = aiohttp.ClientSession(connector=connector)
-        # self.sio = socketio.Client(http_session=http_session)
         # self.gifted={}
         # self.giftedReq=1
         # self.giftedMulti=True
@@ -53,11 +48,11 @@ class StreamElementsClient(QObject):
         self.sio.emit('authenticate', {'method': 'jwt', 'token': self.jwt})
 
     def on_connect(self):
-        print('Successfully connected to the websocket')
+        print('Successfully connected to the streamelements websocket')
         self.authenticate_jwt()  # You can switch to authenticate_jwt() if needed
 
     def on_disconnect(self):
-        print('Disconnected from websocket')
+        print('Disconnected from the streamelements websocket')
         # Reconnect or handle reconnection here
 
     def on_authenticated(self, data):
@@ -71,12 +66,12 @@ class StreamElementsClient(QObject):
         # print(data)
         if(data["type"]=='subscriber'):
             if( not data["data"].get("gifted",False) ):
-                self.resub.emit()
+                self.resub.emit() # resub
                 return
             
             if(data.get("isMock",False)):
                 if(data.get("activityGroup",None)==None):
-                    self.giftedSubs.emit(1)
+                    self.giftedSubs.emit(1) # replayed direct gifted
                     return            
 
             # keys= list(self.gifted.keys())
@@ -96,7 +91,7 @@ class StreamElementsClient(QObject):
         elif(data["type"]=='communityGiftPurchase'):
             if(data.get("isMock",False)):
                 amount = int(data["data"]["amount"])
-                self.giftedSubs.emit(amount)
+                self.giftedSubs.emit(amount) # replayed bulk purchase gifted
 
         elif(data["type"]=='cheer'):
             amount = int(data["data"]["amount"])

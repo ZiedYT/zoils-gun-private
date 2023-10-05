@@ -127,7 +127,7 @@ class Socket(QObject):
                 msg=json.loads(self.ws.recv())
             except:
                 if(self.run_flag ):
-                    print("Error listening, reconnecting")
+                    print("Error listening to twich token, reconnecting")
                     self.reconnect()
                 continue
 

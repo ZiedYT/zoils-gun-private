@@ -19,6 +19,7 @@ class Socket(QObject):
         self.valid=False
         self.client_id = 'gezmeh32vfe7xyd1hjuk1fgdlcsf1b'
         self.channel_name=""
+        self.channelID=""
         self.token=""
         self.ws=self.createSocket()
         self.updateCredentials(token,channel_name)
@@ -134,6 +135,7 @@ class Socket(QObject):
             if(self.channel_name == "ziedyt" and msg["metadata"]["message_type"]!="session_keepalive"):
                 print("-------------------")
                 self.giftedSubs.emit(1)
+                msgType= msg["payload"]['subscription']["type"]
                 print(msg)
 
             if( msg["metadata"]["message_type"]!="session_keepalive"):

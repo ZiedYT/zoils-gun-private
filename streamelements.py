@@ -64,6 +64,7 @@ class StreamElementsClient(QObject):
 
     def on_event(self, data,ts):
         # print(data)
+        print(data)
         if(data["type"]=='subscriber'):
             if( not data["data"].get("gifted",False) ):
                 self.resub.emit() # resub
